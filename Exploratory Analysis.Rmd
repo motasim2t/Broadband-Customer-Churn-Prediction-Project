@@ -1,0 +1,209 @@
+---
+title: "CIND820 DJ0- Big Data Analytics Project||Exploratory Analysis"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+<center> <h1> Broadband Customer Base Churn Datasets </h1> </center>
+<center>  <h3> [Motasim Abdo Allah Mahgoob Mohamed Zaki] </h2> </center>
+<center> <h3> [course section DJ0 & student number 501086732] </h2> </center>
+<center> <h3> [Exploratry Analysis & Data Preparation] </h2> </center>
+---
+**load the "bbs_cust_base_scfy_20200210.csv" dataset.**
+```{r}
+Customer_Churn=read.csv("C:/1 Motasim/bbs_cust_base_scfy_20200210.csv",stringsAsFactors = T, sep = ",", na.strings = c("","NA"))
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+**Descriptive Statistics of Broadband Customer Base Churn datasets **
+``` {r}
+str(Customer_Churn)
+summary(Customer_Churn)
+head(Customer_Churn)
+dim(Customer_Churn)
+sum(is.na(Customer_Churn))
+
+```
+
+
+# Remove  columns with more than 500,000 null values
+
+```{r}
+sapply(Customer_Churn, function(x) sum(is.na(x)))
+Customer_Churn$term_reas_code <- NULL
+Customer_Churn$term_reas_desc <- NULL
+Customer_Churn$X <- NULL
+str(Customer_Churn)
+sapply(Customer_Churn, function(x) sum(is.na(x)))
+```
+
+# Remove rows with null values
+
+```{r}
+Clean_Customer_Churn <- Customer_Churn[complete.cases(Customer_Churn),] 
+sapply(Clean_Customer_Churn, function(x) sum(is.na(x)))
+
+```
+
+
+# Categorize contract months variable every 12 months
+
+```{r}
+min(Clean_Customer_Churn$contract_month)
+max(Clean_Customer_Churn$contract_month)
+
+Cat_Contract_Month <- function(contract_month){
+      if(contract_month >= 0 & contract_month <= 12){
+            return('0 - 12 Month')
+      }else if(contract_month > 12 & contract_month <= 24){
+            return('12 - 24 Month')
+      }else if(contract_month > 24 & contract_month <= 36){
+            return('24 - 36 Month')
+      }else if(contract_month > 36 & contract_month <= 48){
+            return('36 - 48 Month')
+      }else if(contract_month > 48 & contract_month <= 60){
+            return('48 - 60 Month')
+      }else if(contract_month > 60){
+            return('60 - 120 Month')}
+}
+
+Clean_Customer_Churn$Contract_Month_Cat <- sapply(Clean_Customer_Churn$contract_month, Cat_Contract_Month)
+Clean_Customer_Churn$Contract_Month_Cat<- as.factor(Clean_Customer_Churn$Contract_Month_Cat)
+
+```
+
+
+# Categorize tenure months variable every 72 months
+```{r}
+min(Clean_Customer_Churn$tenure)
+max(Clean_Customer_Churn$tenure)
+
+Cat_tenure <- function(tenure){
+      if(tenure >= 0 & tenure <= 72){
+            return('0 - 72 Month')
+      }else if(tenure > 72 & tenure <= 144){
+            return('72 - 144 Month')
+      }else if(tenure > 144){
+            return('>144 Month')}
+}
+
+Clean_Customer_Churn$tenure_Cat <- sapply(Clean_Customer_Churn$tenure, Cat_tenure)
+Clean_Customer_Churn$tenure_Cat<- as.factor(Clean_Customer_Churn$tenure_Cat)
+```
+
+# Remove Contract_Months & Tenure as we replaced them with categorized ones.Remove Service Type  & bill_cycl Coulmns as no change on them
+
+```{r}
+Clean_Customer_Churn$contract_month<-NULL
+Clean_Customer_Churn$tenure<-NULL
+Clean_Customer_Churn$serv_type<-NULL
+Clean_Customer_Churn$bill_cycl<-NULL
+```
+
+
+# Exploratory data analysis
+#Correlation between numeric variables
+```{r}
+library(corrplot)
+numeric_var <- sapply(Clean_Customer_Churn, is.numeric)
+corr_matrix <- cor(Clean_Customer_Churn[, numeric_var])
+corrplot(corr_matrix, main = "\n\nCorrelation Plot for Numerical Variables", method = "number")
+```
+
+# Showing Outliers for numeric variables
+```{r}
+par(mfrow = c(2,3))
+boxplot(Clean_Customer_Churn$image, main = "image", horizontal = TRUE)
+boxplot(Clean_Customer_Churn$ce_expiry, main = "ce_expiry", horizontal = TRUE)
+boxplot(Clean_Customer_Churn$secured_revenue, main = "secured_revenue", horizontal = TRUE)
+
+
+```
+
+
+
+# Checking the balance of class variable (churn)
+```{r}
+#install.packages("epiDisplay")
+library(epiDisplay)
+tab1(Clean_Customer_Churn$churn,sort.group="decreasing", cum.percent= T)
+```
+# Plot histogram for numeric variables
+```{r}
+
+par(mfrow = c(2,3))
+hist(Clean_Customer_Churn$image, main = "image", horizontal = TRUE)
+hist(Clean_Customer_Churn$ce_expiry, main = "ce_expiry", horizontal = TRUE)
+hist(Clean_Customer_Churn$secured_revenue, main = "secured_revenue", horizontal = TRUE)
+
+
+```
+
+
+# Bar plots of categorical variables 
+
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("gridExtra")
+library(gridExtra)
+
+B1 <- ggplot(Clean_Customer_Churn, aes(x=Contract_Month_Cat)) + ggtitle("Contract_Month_Cat") + xlab("Contract_Month_Cat") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B2 <- ggplot(Clean_Customer_Churn, aes(x=current_mth_churn)) + ggtitle("current_mth_churn") + xlab("current_mth_churn") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B3 <- ggplot(Clean_Customer_Churn, aes(x=with_phone_service)) + ggtitle("with_phone_service") + xlab("with_phone_service") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B4 <- ggplot(Clean_Customer_Churn, aes(x=tenure_Cat)) + ggtitle("tenure_Cat") + xlab("tenure_Cat") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+
+
+grid.arrange( B1,B2,B3,B4, ncol=2)
+
+```
+
+
+```{r}
+
+
+B5 <- ggplot(Clean_Customer_Churn, aes(x=line_stat)) + ggtitle("line_stat") + xlab("line_stat") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B6 <- ggplot(Clean_Customer_Churn, aes(x=complaint_cnt)) + ggtitle("complaint_cnt") + xlab("complaint_cnt") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B7 <- ggplot(Clean_Customer_Churn, aes(x=churn)) + ggtitle("churn") + xlab("churn") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+B8 <- ggplot(Clean_Customer_Churn, aes(x=bandwidth)) + ggtitle("bandwidth") + xlab("bandwidth") + 
+      geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.5) + 
+      ylab("%") + coord_flip() + theme_minimal()
+
+grid.arrange( B5,B6,B7,B8, ncol=2)
+
+```
+
+
+#Saving Clean Data
+```{r}
+write.table(Clean_Customer_Churn, "C:/1 Motasim/Clean_Customer_Churn.csv", sep =  ",",quote = F,row.names = F )
+
+```
+
+
+#Validation Clean Data written
+```{r}
+Clean_Customer_Churn=read.csv("C:/1 Motasim/Clean_Customer_Churn.csv",stringsAsFactors = T, sep = ",", na.strings = c("","NA"))
+
+```
