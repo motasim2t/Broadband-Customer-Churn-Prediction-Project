@@ -1,0 +1,241 @@
+---
+title: "CIND820 DJ0- Big Data Analytics Project||Exploratory Analysis"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+<center> <h1> Broadband Customer Base Churn Datasets </h1> </center>
+<center>  <h3> [Motasim Abdo Allah Mahgoob Mohamed Zaki] </h2> </center>
+<center> <h3> [course section DJ0 & student number 501086732] </h2> </center>
+<center> <h3> [Modeling] </h2> </center>
+---
+**load the "Clean_Customer_Churn.csv" dataset.**
+
+```{r}
+Clean_Customer_Churn=read.csv("C:/1 Motasim/Clean_Customer_Churn.csv",stringsAsFactors = T, sep = ",", na.strings = c("","NA"))
+
+```
+
+
+# Modeling
+#Logistic Regression
+#First, split the data into training and testing sets (70% to 30%):
+```{r}
+library(caret)
+
+train <- createDataPartition(Clean_Customer_Churn$churn, p = 0.7, list = FALSE)
+set.seed(2018)
+training <- Clean_Customer_Churn[train, ]
+testing <- Clean_Customer_Churn[- train, ]
+dim(training)
+dim(testing)
+```
+
+
+#Fitting the Logistic Regression Model:
+
+```{r}
+Logistic_Model <- glm(churn ~ line_stat+ bandwidth+ complaint_cnt+with_phone_service+ tenure_Cat+ secured_revenue+ce_expiry+current_mth_churn, family = binomial(link = "logit"), data = training)
+print(summary(Logistic_Model))
+
+
+```
+# from summary: The most-relevant features are Line_stat, Bandwidth, tenure_Cat and with_phone_service
+
+
+
+#Assessing the predictive accuracy of the Logistic Regression Model
+
+```{r}
+testing$churn <- as.character(testing$churn)
+testing$churn[testing$churn == "N"] <- "0"
+testing$churn[testing$churn == "Y"] <- "1"
+fitted_results <- predict(Logistic_Model, newdata = testing, type = "response")
+fitted_results <- ifelse(fitted_results > 0.5, 1, 0)
+misClasificError <- mean(fitted_results != testing$churn)
+print(paste('Logistic Regression Model Accuracy is', 1- misClasificError))
+
+
+```
+#Confusion Matrix
+
+```{r}
+table(testing$churn, fitted_results > 0.5)
+
+```
+
+
+
+# Decision Tree visualization
+
+```{r}
+#install.packages("party")
+library(party)
+tree <- ctree(churn ~ with_phone_service+tenure_Cat+bandwidth, training)
+plot(tree)
+
+```
+
+#Decsion Tree Confusion Matrix:
+```{r}
+pred_DT <- predict(tree, testing)
+print("The Confusion Matrix of Decision Tree is"); table(Predicted = pred_DT, Actual = testing$churn)
+
+
+```
+
+
+#Decision Tree Accuracy
+```{r}
+pre1 <- predict(tree, training)
+step1 <- table(Predicted = pre1, Actual = training$churn)
+step2 <- table(Predicted = pred_DT, Actual = testing$churn)
+print(paste('The Decision Tree Accuracy is',sum(diag(step2))/sum(step2)))
+
+```
+
+#Naive Bayes Model:
+```{r}
+#install.packages("naivebayes")
+library(naivebayes)
+ctrl <- trainControl(method = 'cv',number = 10,classProbs = TRUE,summaryFunction = twoClassSummary)
+NB <- train(churn ~ line_stat+ bandwidth+ complaint_cnt+with_phone_service+ tenure_Cat+ secured_revenue+ce_expiry+current_mth_churn, data = training,method = "naive_bayes", trControl = ctrl, metric = "ROC")
+NB_pred <- predict(NB,testing)
+print("The Confusion Matrix of Naive Bayes is"); 
+table(Predicted = NB_pred, Actual = testing$churn)
+
+
+```
+
+#Naive Bayes Accuracy
+```{r}
+pred1 <- predict(NB, training)
+first_step <- table(Predicted = pred1, Actual = training$churn)
+second_step <- table(Predicted = NB_pred, Actual = testing$churn)
+print(paste('The Naive Bayes Accuracy is',sum(diag(second_step))/sum(second_step)))
+
+```
+
+#Random Forest
+
+# Random Forest Model
+```{r}
+
+gc()
+memory.limit(1000000)
+#URL<-"randomForest_4.6-14.tar.gz"
+#install.packages(URL, repos=NULL, type="source") 
+#install.packages("randomForest")
+library(randomForest)
+RF <- randomForest(churn ~ line_stat+ bandwidth+ complaint_cnt+with_phone_service+ tenure_Cat+ secured_revenue+ce_expiry+current_mth_churn, data = training)
+print(RF)
+```
+
+# Random Forest Prediction and Confusion Matrix
+```{r}
+pred_RF <- predict(RF, testing)
+#caret::confusionMatrix(pred_rf, testing$Churn)
+table(Predicted = pred_RF, Actual = testing$churn)
+```
+
+
+# Random Forest Accuracy
+```{r}
+predict1 <- predict(tree, training)
+step_one <- table(Predicted = predict1, Actual = training$churn)
+step_two <- table(Predicted = pred_RF, Actual = testing$churn)
+print(paste('The Random Forest Accuracy is',sum(diag(step_two))/sum(step_two)))
+```
+
+
+
+#Random Forest Feature Importance
+```{r}
+varImpPlot(RF, sort=T, n.var = 5, main = 'Most important 5 Features')
+
+```
+
+#Balance the data using SMOTE (Synthetic Minority Oversampling Technique)
+```{r}
+#install.packages( "https://cran.r-project.org/src/contrib/Archive/DMwR/DMwR_0.4.1.tar.gz", repos=NULL, type="source" )
+#install.packages(DMwR)
+library(DMwR)
+New_dataset<- Clean_Customer_Churn[1:100000, c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)]
+#memory.limit(100000)
+balanced<- SMOTE(churn ~ . , New_dataset, perc.over = 100)
+```
+
+
+#Verification of balance
+```{r}
+#install.packages("epiDisplay")
+library(epiDisplay)
+tab1(balanced$churn,sort.group="decreasing", cum.percent= T)
+```
+
+#First, split the data into training2 and testing2 sets (70% to 30%):
+```{r}
+library(caret)
+
+balanced_train <- createDataPartition(balanced$churn, p = 0.7, list = FALSE)
+set.seed(2018)
+training2 <- balanced[balanced_train, ]
+testing2 <- balanced[- balanced_train, ]
+dim(training2)
+dim(testing2)
+```
+
+#Run the logistic model after balance
+```{r}
+Logistic_Model2 <- glm(churn ~ line_stat+ bandwidth+ complaint_cnt+with_phone_service+ tenure_Cat+ secured_revenue+ce_expiry+current_mth_churn, family = binomial(link = "logit"), data = training2)
+print(summary(Logistic_Model))
+```
+
+#Assessing the predictive ability of the Logistic Regression model
+
+```{r}
+testing2$churn <- as.character(testing2$churn)
+testing2$churn[testing2$churn == "N"] <- "0"
+testing2$churn[testing2$churn == "Y"] <- "1"
+fitted_results <- predict(Logistic_Model, newdata = testing2, type = "response")
+fitted_results <- ifelse(fitted_results > 0.5, 1, 0)
+misClasificError <- mean(fitted_results != testing2$churn)
+print(paste('Logistic Regression Model Accuracy after balance is', 1- misClasificError))
+
+
+```
+
+
+
+#Install Rtool
+```{r}
+#write('PATH="${RTOOLS40_HOME}\\usr\\bin;${PATH}"', file = "~/.Renviron", append = TRUE)
+#Sys.which("make")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
